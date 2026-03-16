@@ -6,52 +6,62 @@ struct EmployeeRowView: View {
     var onToggleFavorite: (() -> Void)? = nil
 
     var body: some View {
-        NavigationLink(destination: EmployeeDetailView(employee: employee, onToggleFavorite: onToggleFavorite)) {
+        VStack(alignment: .leading, spacing: 0) {
+            // ── 상단: 프로필 정보 + 즐겨찾기 별 ──
             HStack(spacing: 14) {
-                // 프로필 아바타
-                ProfileAvatar(photoUrl: employee.photoUrl, size: 52)
+                // NavigationLink는 아바타 + 이름 영역만 감쌈
+                NavigationLink(destination: EmployeeDetailView(employee: employee, onToggleFavorite: onToggleFavorite)) {
+                    HStack(spacing: 14) {
+                        ProfileAvatar(photoUrl: employee.photoUrl, size: 52)
 
-                // 직원 정보
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 6) {
-                        Text(employee.name)
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(AppTheme.textPrimary)
-                        Text(employee.position)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(AppTheme.primary)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(AppTheme.primaryLight)
-                            .cornerRadius(6)
-                    }
-                    Text("\(employee.team)  ·  \(employee.nickname)")
-                        .font(.system(size: 13))
-                        .foregroundColor(AppTheme.textSecondary)
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack(spacing: 6) {
+                                Text(employee.name)
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Text(employee.position)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(AppTheme.primary)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(AppTheme.primaryLight)
+                                    .cornerRadius(6)
+                            }
+                            Text("\(employee.team)  ·  \(employee.nickname)")
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.textSecondary)
+                        }
 
-                    HStack(spacing: 8) {
-                        CallButton(title: "사내전화", color: AppTheme.callGreen, phone: employee.internalPhone)
-                        CallButton(title: "휴대전화", color: AppTheme.primary,   phone: employee.mobilePhone)
+                        Spacer()
                     }
-                    .padding(.top, 2)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
 
-                Spacer()
-
-                // 즐겨찾기 버튼
+                // 즐겨찾기 별 버튼 – NavigationLink 바깥에 위치
                 if let toggle = onToggleFavorite {
                     Button(action: toggle) {
                         Image(systemName: employee.isFavorite ? "star.fill" : "star")
-                            .font(.system(size: 18))
-                            .foregroundColor(employee.isFavorite ? Color(red: 1.0, green: 0.75, blue: 0.0) : AppTheme.textSecondary.opacity(0.4))
+                            .font(.system(size: 20))
+                            .foregroundColor(
+                                employee.isFavorite
+                                    ? Color(red: 1.0, green: 0.75, blue: 0.0)
+                                    : AppTheme.textSecondary.opacity(0.4)
+                            )
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+
+            // ── 하단: 전화 버튼 – NavigationLink 바깥에 위치 ──
+            HStack(spacing: 8) {
+                CallButton(title: "사내전화", color: AppTheme.callGreen, phone: employee.internalPhone)
+                CallButton(title: "휴대전화", color: AppTheme.primary,   phone: employee.mobilePhone)
+            }
+            .padding(.top, 10)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .cardStyle()
         .padding(.horizontal, 16)
         .padding(.vertical, 5)

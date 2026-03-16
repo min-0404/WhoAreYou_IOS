@@ -16,11 +16,11 @@ struct LoginView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     // 로고 영역
-                    VStack(spacing: 12) {
+                    VStack(spacing: 4) {
                         Image("login_logo")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 300, height: 300)
+                            .frame(width: 240, height: 240)
 
                         Text("BC후아유")
                             .font(.system(size: 26, weight: .bold, design: .rounded))
