@@ -21,11 +21,12 @@ struct HomeView: View {
                 VStack(spacing: 0) {
                     // 상단 헤더
                     HStack(spacing: 10) {
-                        if UIImage(named: "bccard_logo") != nil {
-                            Image("bccard_logo")
+                        if UIImage(named: "top_logo") != nil {
+                            Image("top_logo")
                                 .resizable()
                                 .scaledToFit()
-                                .frame(height: 28)
+                                .frame(height: 40)
+                                .background(Color.white)
                         } else {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 8)

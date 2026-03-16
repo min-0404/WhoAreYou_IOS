@@ -10,30 +10,23 @@ struct LoginView: View {
 
     var body: some View {
         ZStack {
-            // 상단 핑크 그라데이션 배경
-            VStack(spacing: 0) {
-                AppTheme.heroGradient
-                    .frame(height: 320)
-                AppTheme.background
-            }
-            .ignoresSafeArea()
+            // 흰색 배경
+            Color.white.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     // 로고 영역
                     VStack(spacing: 12) {
-                        Image("main_image")
+                        Image("login_logo")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 96, height: 96)
-                            .cornerRadius(24)
-                            .shadow(color: AppTheme.primary.opacity(0.25), radius: 20, x: 0, y: 10)
+                            .frame(width: 300, height: 300)
 
-                        Text("후아유")
+                        Text("BC후아유")
                             .font(.system(size: 26, weight: .bold, design: .rounded))
                             .foregroundColor(AppTheme.textPrimary)
 
-                        Text("BC카드 임직원 전화번호부")
+                        Text("테스트 계정 id: test / pw: 1")
                             .font(.system(size: 14))
                             .foregroundColor(AppTheme.textSecondary)
                     }
@@ -42,9 +35,8 @@ struct LoginView: View {
 
                     // 로그인 카드
                     VStack(spacing: 16) {
-                        InputField(icon: "person.circle.fill", placeholder: "사번을 입력하세요", text: $employeeId, isSecure: false)
-                            .keyboardType(.numberPad)
-                        InputField(icon: "lock.circle.fill", placeholder: "비밀번호를 입력하세요", text: $password, isSecure: true)
+                        InputField(icon: "person.circle.fill", placeholder: "사번", text: $employeeId, isSecure: false)
+                        InputField(icon: "lock.circle.fill", placeholder: "비밀번호", text: $password, isSecure: true)
 
                         // 로그인 버튼
                         Button(action: login) {
@@ -92,8 +84,7 @@ struct LoginView: View {
             showAlert = true
             return
         }
-        // 사번으로 직원 검색 (현재는 id=13인 김민석이 사번 12345에 매핑)
-        if employeeId == "12345" && password == "Test1234!" {
+        if employeeId == "test" && password == "1" {
             if let employee = MockData.employees.first(where: { $0.id == 13 }) {
                 loggedInEmployee = employee
                 isLoggedIn = true
