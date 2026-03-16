@@ -174,7 +174,14 @@ struct HomeView: View {
             .task {
                 // 앱 시작 시 API에서 임직원 목록을 불러옵니다.
                 // API 실패 시 초기값 MockData가 그대로 유지됩니다.
-                employees = await EmployeeAPIService.shared.fetchEmployees()
+                // 화면 복귀 시 .task가 재실행되어도 기존 즐겨찾기 상태를 보존합니다.
+                let fetched = await EmployeeAPIService.shared.fetchEmployees()
+                let favoriteIds = Set(employees.filter { $0.isFavorite }.map { $0.id })
+                employees = fetched.map { emp in
+                    var updated = emp
+                    updated.isFavorite = favoriteIds.contains(emp.id)
+                    return updated
+                }
             }
         }
         .alert("로그아웃", isPresented: $showLogoutAlert) {
