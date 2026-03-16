@@ -22,14 +22,14 @@ struct LoginView: View {
                 VStack(spacing: 0) {
                     // 로고 영역
                     VStack(spacing: 12) {
-                        Image("app_icon")
+                        Image("main_image")
                             .resizable()
                             .scaledToFit()
                             .frame(width: 96, height: 96)
                             .cornerRadius(24)
                             .shadow(color: AppTheme.primary.opacity(0.25), radius: 20, x: 0, y: 10)
 
-                        Text("WhoAreYou")
+                        Text("후아유")
                             .font(.system(size: 26, weight: .bold, design: .rounded))
                             .foregroundColor(AppTheme.textPrimary)
 

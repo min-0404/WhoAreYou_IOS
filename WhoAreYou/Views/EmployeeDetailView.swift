@@ -13,7 +13,7 @@ struct EmployeeDetailView: View {
                     // 프로필 헤더 카드
                     VStack(spacing: 14) {
                         // 프로필 아바타
-                        ProfileAvatar(imageName: employee.profileImageName, initial: String(employee.name.prefix(1)), size: 96)
+                        ProfileAvatar(photoUrl: employee.photoUrl, size: 96)
 
                         // 이름
                         Text(employee.name)

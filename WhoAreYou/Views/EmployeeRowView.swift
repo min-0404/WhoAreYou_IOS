@@ -1,4 +1,5 @@
 import SwiftUI
+import Kingfisher
 
 struct EmployeeRowView: View {
     let employee: Employee
@@ -8,7 +9,7 @@ struct EmployeeRowView: View {
         NavigationLink(destination: EmployeeDetailView(employee: employee, onToggleFavorite: onToggleFavorite)) {
             HStack(spacing: 14) {
                 // 프로필 아바타
-                ProfileAvatar(imageName: employee.profileImageName, initial: String(employee.name.prefix(1)), size: 52)
+                ProfileAvatar(photoUrl: employee.photoUrl, size: 52)
 
                 // 직원 정보
                 VStack(alignment: .leading, spacing: 5) {
@@ -57,36 +58,32 @@ struct EmployeeRowView: View {
     }
 }
 
-// 프로필 이미지 or 기본 프로필 아바타
+// 프로필 아바타
+// - photoUrl 있음 → Kingfisher 다운로드 + 캐시 (로딩 중·실패 시 default_profile 표시)
+// - photoUrl 없음 → default_profile 즉시 표시
 struct ProfileAvatar: View {
-    let imageName: String?
-    let initial: String
+    var photoUrl: String? = nil    // 서버 사진 URL
     let size: CGFloat
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(AppTheme.primaryLight)
-                .frame(width: size, height: size)
-
-            if let name = imageName, UIImage(named: name) != nil {
-                Image(name)
+        Group {
+            if let urlString = photoUrl, let url = URL(string: urlString) {
+                KFImage(url)
+                    .placeholder { defaultProfileImage }
                     .resizable()
                     .scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
-            } else if UIImage(named: "default_profile") != nil {
-                Image("default_profile")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
             } else {
-                Text(initial)
-                    .font(.system(size: size * 0.38, weight: .bold))
-                    .foregroundColor(AppTheme.primary)
+                defaultProfileImage
             }
         }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+    }
+
+    private var defaultProfileImage: some View {
+        Image("default_profile")
+            .resizable()
+            .scaledToFill()
     }
 }
 

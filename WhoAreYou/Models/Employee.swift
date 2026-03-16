@@ -12,6 +12,7 @@ struct Employee: Identifiable {
     let fax: String                // 팩스
     let email: String              // 이메일
     var profileImageName: String? = nil  // Assets에 등록된 이미지명, nil이면 기본 프로필
+    var photoUrl: String? = nil          // 서버 API 연결 후 실제 사진 URL이 여기에 들어옴
     var isFavorite: Bool = false
 }
 

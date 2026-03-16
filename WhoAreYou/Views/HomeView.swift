@@ -3,10 +3,15 @@ import SwiftUI
 struct HomeView: View {
     let loggedInEmployee: Employee
     @Binding var isLoggedIn: Bool
+    // 초기값은 MockData (API 호출 전 즉시 표시), 이후 .task에서 API 결과로 교체됨
     @State private var employees = MockData.employees
     @State private var showSettings = false
     @State private var showInfo = false
     @State private var showLogoutAlert = false
+
+    // 트렌디한 신규 색상
+    private let colorTeal = Color(red: 0.00, green: 0.71, blue: 0.85)  // #00B4D9
+    private let colorRose = Color(red: 0.91, green: 0.12, blue: 0.55)  // #E91E8C
 
     var body: some View {
         NavigationStack {
@@ -16,7 +21,6 @@ struct HomeView: View {
                 VStack(spacing: 0) {
                     // 상단 헤더
                     HStack(spacing: 10) {
-                        // BC카드 로고 (이미지 있으면 표시, 없으면 텍스트 폴백)
                         if UIImage(named: "bccard_logo") != nil {
                             Image("bccard_logo")
                                 .resizable()
@@ -33,15 +37,12 @@ struct HomeView: View {
                             }
                         }
 
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("후아유 임직원 서비스")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(AppTheme.textPrimary)
-                        }
+                        Text("후아유 임직원 서비스")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(AppTheme.textPrimary)
 
                         Spacer()
 
-                        // 로그아웃 버튼
                         Button(action: { showLogoutAlert = true }) {
                             HStack(spacing: 5) {
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -63,64 +64,78 @@ struct HomeView: View {
                             .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                     )
 
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 16) {
+                    // 콘텐츠 영역 (스크롤 없음, 화면에 꽉 맞춤)
+                    VStack(spacing: 10) {
+                        // 내 프로필 카드
+                        MyProfileCard(employee: loggedInEmployee)
 
-                            // 내 프로필 카드
-                            MyProfileCard(employee: loggedInEmployee)
-                                .padding(.horizontal, 20)
-                                .padding(.top, 20)
-
-                            // 메뉴 2x2 그리드
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                        // 메뉴 그리드 3행 × 2열 (고정 높이 → 하단 여백 자동 확보)
+                        VStack(spacing: 10) {
+                            HStack(spacing: 12) {
                                 NavigationLink(destination: FavoritesView(employees: $employees)) {
-                                    HomeMenuCard(icon: "star.fill",          title: "즐겨찾기", color: AppTheme.accentOrange)
+                                    HomeMenuCard(icon: "star.fill", title: "즐겨찾기", color: AppTheme.accentOrange)
                                 }
                                 NavigationLink(destination: TeamView(employees: $employees)) {
-                                    HomeMenuCard(icon: "person.2.fill",      title: "팀원보기", color: AppTheme.accentBlue)
+                                    HomeMenuCard(icon: "person.2.fill", title: "팀원보기", color: AppTheme.accentBlue)
                                 }
+                            }
+                            .frame(height: 100)
+
+                            HStack(spacing: 12) {
                                 NavigationLink(destination: SearchView(employees: $employees)) {
-                                    HomeMenuCard(icon: "magnifyingglass",    title: "검색",    color: AppTheme.accentGreen)
+                                    HomeMenuCard(icon: "magnifyingglass", title: "검색", color: AppTheme.accentGreen)
                                 }
                                 NavigationLink(destination: OrgChartView(employees: $employees)) {
-                                    HomeMenuCard(icon: "list.bullet.indent", title: "조직도",  color: AppTheme.accentPurple)
+                                    HomeMenuCard(icon: "list.bullet.indent", title: "조직도", color: AppTheme.accentPurple)
                                 }
                             }
-                            .padding(.horizontal, 20)
+                            .frame(height: 100)
 
-                            // 안내 카드
-                            Button(action: { showSettings = true }) {
-                                HStack(spacing: 14) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(AppTheme.primaryLight)
-                                            .frame(width: 40, height: 40)
-                                        Image(systemName: "clock.arrow.circlepath")
-                                            .foregroundColor(AppTheme.primary)
-                                            .font(.system(size: 18))
-                                    }
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text("전화번호부 업데이트")
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .foregroundColor(AppTheme.textPrimary)
-                                        Text("설정에서 주기적으로 데이터베이스 업데이트를 눌러주세요")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(AppTheme.textSecondary)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(AppTheme.textSecondary.opacity(0.5))
+                            HStack(spacing: 12) {
+                                NavigationLink(destination: AddPhoneView()) {
+                                    HomeMenuCard(icon: "plus.circle.fill", title: "전화번호 추가", color: colorTeal)
                                 }
-                                .padding(16)
+                                NavigationLink(destination: CallHistoryView()) {
+                                    HomeMenuCard(icon: "phone.fill", title: "통화내역", color: colorRose)
+                                }
                             }
-                            .buttonStyle(.plain)
-                            .cardStyle()
-                            .padding(.horizontal, 20)
-
-                            Spacer(minLength: 100)
+                            .frame(height: 100)
                         }
+
+                        // 전화번호부 업데이트 안내 카드
+                        Button(action: { showSettings = true }) {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(AppTheme.primaryLight)
+                                        .frame(width: 36, height: 36)
+                                    Image(systemName: "clock.arrow.circlepath")
+                                        .foregroundColor(AppTheme.primary)
+                                        .font(.system(size: 16))
+                                }
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("전화번호부 업데이트")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Text("설정에서 주기적으로 데이터베이스 업데이트를 눌러주세요")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(AppTheme.textSecondary.opacity(0.5))
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                        }
+                        .buttonStyle(.plain)
+                        .cardStyle()
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 24)
+                    .frame(maxHeight: .infinity, alignment: .top)
 
                     // 하단 탭바
                     HStack {
@@ -155,6 +170,11 @@ struct HomeView: View {
                 }
             }
             .navigationBarHidden(true)
+            .task {
+                // 앱 시작 시 API에서 임직원 목록을 불러옵니다.
+                // API 실패 시 초기값 MockData가 그대로 유지됩니다.
+                employees = await EmployeeAPIService.shared.fetchEmployees()
+            }
         }
         .alert("로그아웃", isPresented: $showLogoutAlert) {
             Button("취소", role: .cancel) {}
@@ -185,19 +205,13 @@ struct MyProfileCard: View {
 
     var body: some View {
         NavigationLink(destination: EmployeeDetailView(employee: employee)) {
-            HStack(spacing: 16) {
-                // 프로필 아바타
-                ProfileAvatar(
-                    imageName: employee.profileImageName,
-                    initial: String(employee.name.prefix(1)),
-                    size: 62
-                )
+            HStack(spacing: 14) {
+                ProfileAvatar(photoUrl: employee.photoUrl, size: 54)
 
-                // 정보
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Text(employee.name)
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 17, weight: .bold))
                             .foregroundColor(AppTheme.textPrimary)
                         Text(employee.nickname)
                             .font(.system(size: 13, weight: .medium))
@@ -207,7 +221,6 @@ struct MyProfileCard: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(AppTheme.textSecondary)
 
-                    // 업무명 뱃지
                     HStack(spacing: 5) {
                         Image(systemName: "briefcase.fill")
                             .font(.system(size: 10))
@@ -220,7 +233,6 @@ struct MyProfileCard: View {
                     .padding(.vertical, 4)
                     .background(Color(red: 0.88, green: 0.93, blue: 1.00))
                     .cornerRadius(20)
-                    .padding(.top, 2)
                 }
 
                 Spacer()
@@ -229,35 +241,39 @@ struct MyProfileCard: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(AppTheme.textSecondary.opacity(0.4))
             }
-            .padding(18)
+            .padding(14)
         }
         .buttonStyle(.plain)
         .cardStyle()
     }
 }
 
-// MARK: - 홈 메뉴 카드
+// MARK: - 홈 메뉴 카드 (화면 높이에 비례해 자동 조절)
 struct HomeMenuCard: View {
     let icon: String
     let title: String
     let color: Color
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
             ZStack {
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 14)
                     .fill(color.opacity(0.14))
-                    .frame(width: 56, height: 56)
+                    .frame(width: 46, height: 46)
                 Image(systemName: icon)
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(color)
             }
+            Spacer(minLength: 8)
             Text(title)
-                .font(.system(size: 15, weight: .bold))
+                .font(.system(size: 13, weight: .bold))
                 .foregroundColor(AppTheme.textPrimary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .cardStyle()
     }
 }
