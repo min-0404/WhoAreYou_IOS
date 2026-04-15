@@ -1,54 +1,56 @@
 import SwiftUI
+import Combine
 
 struct FavoritesView: View {
-    @Binding var employees: [Employee]
-
-    var favorites: [Employee] {
-        employees.filter { $0.isFavorite }
-    }
+    @StateObject private var vm = FavoritesViewModel()
 
     var body: some View {
         ZStack {
             AppTheme.background.ignoresSafeArea()
 
-            if favorites.isEmpty {
-                VStack(spacing: 16) {
-                    ZStack {
-                        Circle()
-                            .fill(AppTheme.primaryLight)
-                            .frame(width: 80, height: 80)
-                        Image(systemName: "star.slash")
-                            .font(.system(size: 32, weight: .semibold))
-                            .foregroundColor(AppTheme.primary)
-                    }
-                    Text("즐겨찾기한 직원이 없습니다")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(AppTheme.textPrimary)
-                    Text("팀원보기에서 별표를 눌러 추가하세요")
-                        .font(.system(size: 13))
-                        .foregroundColor(AppTheme.textSecondary)
-                }
+            if vm.isLoading {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if vm.employees.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "star.slash").font(.system(size: 48)).foregroundColor(AppTheme.textSecondary.opacity(0.5))
+                    Text("즐겨찾기한 직원이 없습니다").font(.system(size: 15)).foregroundColor(AppTheme.textSecondary)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(favorites) { employee in
-                            EmployeeRowView(employee: employee) {
-                                toggleFavorite(employee)
-                            }
-                        }
-                        Spacer(minLength: 20)
+                List(vm.employees) { emp in
+                    NavigationLink { EmployeeDetailView(empNo: emp.empNo) } label: {
+                        EmployeeRowView(employee: emp, onFavoriteToggle: { vm.toggleFavorite(emp) })
                     }
-                    .padding(.top, 8)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowSeparator(.hidden).listRowBackground(Color.clear)
                 }
+                .listStyle(.plain)
+                .refreshable { await vm.load() }
             }
         }
         .navigationTitle("즐겨찾기")
         .navigationBarTitleDisplayMode(.inline)
+        .task { await vm.load() }
+    }
+}
+
+@MainActor
+class FavoritesViewModel: ObservableObject {
+    @Published var employees: [Employee] = []
+    @Published var isLoading = false
+
+    func load() async {
+        isLoading = true
+        employees = await EmployeeRepository.shared.getMyFavorites()
+        isLoading = false
     }
 
     func toggleFavorite(_ employee: Employee) {
-        if let index = employees.firstIndex(where: { $0.id == employee.id }) {
-            employees[index].isFavorite.toggle()
+        Task {
+            let newFav = await EmployeeRepository.shared.toggleFavorite(empNo: employee.empNo, currentIsFavorite: employee.isFavorite)
+            if let idx = employees.firstIndex(where: { $0.empNo == employee.empNo }) {
+                employees[idx].isFavorite = newFav
+                if !newFav { employees.remove(at: idx) }
+            }
         }
     }
 }

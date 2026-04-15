@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct AddPhoneView: View {
-    @ObservedObject var storage = ContactStorage.shared
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var storage = ContactStorage.shared
     @State private var showAddSheet = false
     @State private var deleteTarget: CustomContact? = nil
     @State private var showDeleteAlert = false
@@ -11,38 +12,12 @@ struct AddPhoneView: View {
             AppTheme.background.ignoresSafeArea()
 
             if storage.contacts.isEmpty {
-                VStack(spacing: 16) {
-                    Spacer()
-                    ZStack {
-                        Circle()
-                            .fill(AppTheme.primaryLight)
-                            .frame(width: 72, height: 72)
-                        Image(systemName: "phone.fill")
-                            .font(.system(size: 30))
-                            .foregroundColor(AppTheme.primary)
-                    }
-                    Text("저장된 번호가 없습니다")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(AppTheme.textPrimary)
-                    Text("우측 상단 + 버튼으로 번호를 추가해보세요")
-                        .font(.system(size: 14))
-                        .foregroundColor(AppTheme.textSecondary)
-                    Button(action: { showAddSheet = true }) {
-                        Label("전화번호 추가", systemImage: "plus")
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
-                            .background(AppTheme.primary)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                    }
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                emptyStateView
             } else {
                 ScrollView {
                     VStack(spacing: 10) {
                         ForEach(storage.contacts) { contact in
-                            CustomContactCard(contact: contact, onDelete: {
+                            ContactCard(contact: contact, onDelete: {
                                 deleteTarget = contact
                                 showDeleteAlert = true
                             })
@@ -55,63 +30,132 @@ struct AddPhoneView: View {
         }
         .navigationTitle("전화번호 추가")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .foregroundColor(AppTheme.primary)
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showAddSheet = true }) {
                     Image(systemName: "plus")
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(AppTheme.primary)
                 }
             }
         }
+        .toolbarBackground(.white, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .sheet(isPresented: $showAddSheet) {
-            AddContactSheet(onSave: { name, phone, note in
-                let contact = CustomContact(name: name, phone: phone, note: note)
-                storage.saveContact(contact)
-            })
+            AddContactSheet { name, phone, note in
+                storage.addContact(CustomContact(
+                    id: UUID().uuidString,
+                    name: name,
+                    phone: phone,
+                    note: note
+                ))
+            }
         }
         .alert("삭제", isPresented: $showDeleteAlert, presenting: deleteTarget) { contact in
-            Button("삭제", role: .destructive) { storage.deleteContact(id: contact.id) }
+            Button("삭제", role: .destructive) {
+                storage.deleteContact(id: contact.id)
+            }
             Button("취소", role: .cancel) {}
         } message: { contact in
             Text("\(contact.name)(\(contact.phone))를 삭제하시겠습니까?")
         }
     }
+
+    private var emptyStateView: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            ZStack {
+                Circle()
+                    .fill(AppTheme.primaryLight)
+                    .frame(width: 72, height: 72)
+                Image(systemName: "phone.fill")
+                    .font(.system(size: 30))
+                    .foregroundColor(AppTheme.primary)
+            }
+            Text("저장된 번호가 없습니다")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(AppTheme.textPrimary)
+            Text("우측 상단 + 버튼으로 번호를 추가해보세요")
+                .font(.system(size: 14))
+                .foregroundColor(AppTheme.textSecondary)
+                .multilineTextAlignment(.center)
+            Button(action: { showAddSheet = true }) {
+                Label("전화번호 추가", systemImage: "plus")
+                    .font(.system(size: 15, weight: .semibold))
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(AppTheme.primary)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 }
 
-// 팀원보기와 동일한 카드 스타일
-struct CustomContactCard: View {
+// MARK: - Contact Card
+
+private struct ContactCard: View {
     let contact: CustomContact
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 14) {
-            ProfileAvatar(size: 52)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 14) {
+                ProfileAvatarView(
+                    employee: Employee(empNo: contact.id, name: contact.name, team: "", teamCode: "",
+                                      position: "", nickname: "", jobTitle: "",
+                                      internalPhone: "", mobilePhone: "", fax: "", email: "",
+                                      imgdata: nil),
+                    size: 52
+                )
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(contact.name)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(AppTheme.textPrimary)
-                Text(contact.phone)
-                    .font(.system(size: 13))
-                    .foregroundColor(AppTheme.textSecondary)
-                if !contact.note.isEmpty {
-                    Text(contact.note)
-                        .font(.system(size: 12))
-                        .foregroundColor(AppTheme.textSecondary.opacity(0.7))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(contact.name)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(AppTheme.textPrimary)
+                    Text(contact.phone)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.textSecondary)
+                    if !contact.note.isEmpty {
+                        Text(contact.note)
+                            .font(.system(size: 12))
+                            .foregroundColor(AppTheme.textSecondary.opacity(0.7))
+                    }
                 }
-                // 전화 버튼 (팀원보기와 동일한 스타일)
-                HStack(spacing: 8) {
-                    CallButton(title: "전화하기", color: AppTheme.primary, phone: contact.phone)
+
+                Spacer()
+
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 16))
+                        .foregroundColor(.red.opacity(0.6))
                 }
-                .padding(.top, 2)
+                .buttonStyle(.plain)
             }
+            .padding(.bottom, 12)
 
-            Spacer()
-
-            Button(action: onDelete) {
-                Image(systemName: "trash")
-                    .font(.system(size: 16))
-                    .foregroundColor(.red.opacity(0.6))
+            Button(action: {
+                let cleaned = contact.phone.filter { $0.isNumber || $0 == "+" }
+                if let url = URL(string: "tel:\(cleaned)") {
+                    UIApplication.shared.open(url)
+                }
+            }) {
+                Text("전화하기")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(AppTheme.primary)
+                    .cornerRadius(AppTheme.radiusS)
             }
             .buttonStyle(.plain)
         }
@@ -121,12 +165,20 @@ struct CustomContactCard: View {
     }
 }
 
-struct AddContactSheet: View {
+// MARK: - Add Contact Sheet
+
+private struct AddContactSheet: View {
     @Environment(\.dismiss) private var dismiss
-    var onSave: (String, String, String) -> Void
+    let onSave: (String, String, String) -> Void
+
     @State private var name = ""
     @State private var phone = ""
     @State private var note = ""
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty &&
+        !phone.trimmingCharacters(in: .whitespaces).isEmpty
+    }
 
     var body: some View {
         NavigationStack {
@@ -149,13 +201,15 @@ struct AddContactSheet: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("저장") {
-                        onSave(name.trimmingCharacters(in: .whitespaces),
-                               phone.trimmingCharacters(in: .whitespaces),
-                               note.trimmingCharacters(in: .whitespaces))
+                        onSave(
+                            name.trimmingCharacters(in: .whitespaces),
+                            phone.trimmingCharacters(in: .whitespaces),
+                            note.trimmingCharacters(in: .whitespaces)
+                        )
                         dismiss()
                     }
                     .foregroundColor(AppTheme.primary)
-                    .disabled(name.isEmpty || phone.isEmpty)
+                    .disabled(!canSave)
                 }
             }
         }

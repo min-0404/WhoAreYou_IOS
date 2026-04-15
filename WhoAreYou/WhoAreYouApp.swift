@@ -10,16 +10,13 @@ struct WhoAreYouApp: App {
 }
 
 struct AppRootView: View {
-    @State private var isLoggedIn = false
-    @State private var loggedInEmployee: Employee? = nil
+    @StateObject private var authManager = AuthManager.shared
 
     var body: some View {
-        if isLoggedIn, let employee = loggedInEmployee {
-            HomeView(loggedInEmployee: employee, isLoggedIn: $isLoggedIn)
+        if authManager.isLoggedIn {
+            MainTabView()
         } else {
-            NavigationStack {
-                LoginView(isLoggedIn: $isLoggedIn, loggedInEmployee: $loggedInEmployee)
-            }
+            LoginView()
         }
     }
 }

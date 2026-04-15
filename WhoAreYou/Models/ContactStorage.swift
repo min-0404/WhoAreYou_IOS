@@ -1,124 +1,85 @@
 import Foundation
 import Combine
-import CallKit
 
-class ContactStorage: ObservableObject {
+/// 커스텀 연락처와 통화 기록을 UserDefaults에 저장하는 싱글톤
+@MainActor
+final class ContactStorage: ObservableObject {
     static let shared = ContactStorage()
 
-    private let appGroupID = "group.com.minseok.whoareyou"
-    private let contactsKey = "custom_contacts"
-    private let callRecordsKey = "call_records"
-    private let maxCallRecords = 200
+    @Published private(set) var contacts: [CustomContact] = []
+    @Published private(set) var callRecords: [CallRecord] = []
 
-    private var appGroupDefaults: UserDefaults? {
-        UserDefaults(suiteName: appGroupID)
+    private enum Keys {
+        static let contacts    = "custom_contacts"
+        static let callRecords = "call_records"
     }
 
-    @Published var contacts: [CustomContact] = []
-    @Published var callRecords: [CallRecord] = []
+    private static let maxRecords = 200
 
-    private init() {
-        contacts = loadContacts()
-        callRecords = loadCallRecords()
+    private init() { load() }
+
+    // MARK: - Custom Contacts CRUD
+
+    func addContact(_ contact: CustomContact) {
+        contacts.append(contact)
+        save()
     }
 
-    // ── Custom Contacts ──────────────────────────────────────
-
-    func saveContact(_ contact: CustomContact) {
+    func updateContact(_ contact: CustomContact) {
         if let idx = contacts.firstIndex(where: { $0.id == contact.id }) {
             contacts[idx] = contact
-        } else {
-            contacts.insert(contact, at: 0)
+            save()
         }
-        persistContacts(contacts)
-        reloadCallDirectoryExtension()
     }
 
     func deleteContact(id: String) {
         contacts.removeAll { $0.id == id }
-        persistContacts(contacts)
-        reloadCallDirectoryExtension()
+        save()
     }
 
-    private func loadContacts() -> [CustomContact] {
-        // App Group 우선, 없으면 기존 standard UserDefaults에서 마이그레이션
-        let data = appGroupDefaults?.data(forKey: contactsKey)
-            ?? UserDefaults.standard.data(forKey: contactsKey)
-        guard let data = data,
-              let decoded = try? JSONDecoder().decode([CustomContact].self, from: data)
-        else { return [] }
-        return decoded
+    func findContact(byPhone phone: String) -> CustomContact? {
+        let normalized = normalizePhone(phone)
+        return contacts.first { normalizePhone($0.phone) == normalized }
     }
 
-    private func persistContacts(_ contacts: [CustomContact]) {
-        guard let data = try? JSONEncoder().encode(contacts) else { return }
-        // App Group에 저장 (CallKit 익스텐션이 읽을 수 있도록)
-        appGroupDefaults?.set(data, forKey: contactsKey)
-        appGroupDefaults?.synchronize()
-        // 기존 standard UserDefaults 항목 제거
-        UserDefaults.standard.removeObject(forKey: contactsKey)
-    }
-
-    private func reloadCallDirectoryExtension() {
-        CXCallDirectoryManager.sharedInstance.reloadExtension(
-            withIdentifier: "com.minseok.WhoAreYou.CallDirectoryExtension"
-        ) { _ in }
-    }
-
-    // ── Call Records ─────────────────────────────────────────
+    // MARK: - Call Records
 
     func addCallRecord(_ record: CallRecord) {
         callRecords.insert(record, at: 0)
-        if callRecords.count > maxCallRecords {
-            callRecords = Array(callRecords.prefix(maxCallRecords))
+        if callRecords.count > Self.maxRecords {
+            callRecords = Array(callRecords.prefix(Self.maxRecords))
         }
-        persist(callRecords, key: callRecordsKey)
+        save()
     }
 
     func clearCallRecords() {
-        callRecords = []
-        UserDefaults.standard.removeObject(forKey: callRecordsKey)
+        callRecords.removeAll()
+        save()
     }
 
-    private func loadCallRecords() -> [CallRecord] {
-        guard let data = UserDefaults.standard.data(forKey: callRecordsKey),
-              let decoded = try? JSONDecoder().decode([CallRecord].self, from: data)
-        else { return [] }
-        return decoded
-    }
-
-    // ── 번호 조회 (임직원 + 커스텀 연락처 통합) ─────────────────
-
-    func findCallerInfo(rawNumber: String) -> (name: String, team: String, job: String)? {
-        let normalized = normalizePhone(rawNumber)
-
-        // 1. 임직원 목록에서 검색
-        if let emp = MockData.employees.first(where: {
-            normalizePhone($0.mobilePhone) == normalized ||
-            normalizePhone($0.internalPhone) == normalized
-        }) {
-            return (emp.name, emp.team, emp.jobTitle)
-        }
-
-        // 2. 커스텀 연락처에서 검색
-        if let contact = contacts.first(where: { normalizePhone($0.phone) == normalized }) {
-            return (contact.name, "", contact.note)
-        }
-
-        return nil
-    }
+    // MARK: - Private
 
     private func normalizePhone(_ phone: String) -> String {
         var num = phone.filter { $0.isNumber }
-        if num.hasPrefix("82") && num.count > 10 {
-            num = "0" + num.dropFirst(2)
-        }
+        if num.hasPrefix("82") && num.count > 10 { num = "0" + String(num.dropFirst(2)) }
         return num
     }
 
-    private func persist<T: Encodable>(_ value: T, key: String) {
-        if let data = try? JSONEncoder().encode(value) {
-            UserDefaults.standard.set(data, forKey: key)
+    private func load() {
+        let ud = UserDefaults.standard
+        if let data = ud.data(forKey: Keys.contacts),
+           let loaded = try? JSONDecoder().decode([CustomContact].self, from: data) {
+            contacts = loaded
         }
+        if let data = ud.data(forKey: Keys.callRecords),
+           let loaded = try? JSONDecoder().decode([CallRecord].self, from: data) {
+            callRecords = loaded
+        }
+    }
+
+    private func save() {
+        let ud = UserDefaults.standard
+        if let data = try? JSONEncoder().encode(contacts)    { ud.set(data, forKey: Keys.contacts)    }
+        if let data = try? JSONEncoder().encode(callRecords) { ud.set(data, forKey: Keys.callRecords) }
     }
 }
