@@ -1,9 +1,16 @@
 import SwiftUI
 
 /// 직원 프로필 아바타 뷰 (이름 첫 글자 or 사진)
+/// - URL 이미지(상대/절대) → AsisApiClient 세션으로 로드 (JSESSIONID 쿠키 + TrustAllSSL)
+///   AsyncImage 는 URLSession.shared 사용 → TrustAllSSLDelegate 없어 SSL 타임아웃 발생
+/// - data:image/... Base64 → UIImage 디코딩 후 표시
+/// - 로드 실패 / nil → 이름 첫 글자 그라디언트 아바타
 struct ProfileAvatarView: View {
     let employee: Employee
     let size: CGFloat
+
+    @State private var loadedImage: UIImage? = nil
+    @State private var isLoading = false
 
     private var avatarColors: [Color] {
         let colors: [[Color]] = [
@@ -18,23 +25,45 @@ struct ProfileAvatarView: View {
     }
 
     var body: some View {
-        ZStack {
-            if let url = employee.profileImageURL {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                    default:
-                        fallbackView
-                    }
-                }
-                .frame(width: size, height: size)
-                .clipShape(Circle())
+        Group {
+            if let img = loadedImage {
+                // 성공적으로 로드된 이미지
+                Image(uiImage: img)
+                    .resizable().scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+            } else if let decoded = decodeBase64(employee.imgdata) {
+                // Base64 / data URI 이미지 (즉시 표시 가능)
+                Image(uiImage: decoded)
+                    .resizable().scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
             } else {
+                // URL 로딩 중이거나 이미지 없음 → 폴백
                 fallbackView
             }
         }
+        .task(id: employee.empNo) {
+            await loadRemoteImage()
+        }
     }
+
+    // MARK: - 원격 이미지 로드 (AsisApiClient 세션 사용)
+
+    private func loadRemoteImage() async {
+        guard let url = employee.profileImageURL else { return }
+        // Base64 이미지는 별도 처리하므로 스킵
+        guard employee.imgdata?.hasPrefix("data:") != true else { return }
+        guard !isLoading else { return }
+        isLoading = true
+        if let data = await AsisApiClient.shared.downloadImage(from: url),
+           let img = UIImage(data: data) {
+            loadedImage = img
+        }
+        isLoading = false
+    }
+
+    // MARK: - Fallback: 이름 첫 글자 아바타
 
     private var fallbackView: some View {
         Circle()
@@ -45,5 +74,23 @@ struct ProfileAvatarView: View {
                     .font(.system(size: size * 0.4, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
             )
+    }
+
+    // MARK: - Base64 디코딩
+
+    private func decodeBase64(_ imgdata: String?) -> UIImage? {
+        guard let imgdata, !imgdata.isEmpty else { return nil }
+        let b64: String
+        if imgdata.hasPrefix("data:image") {
+            guard let commaIdx = imgdata.firstIndex(of: ",") else { return nil }
+            b64 = String(imgdata[imgdata.index(after: commaIdx)...])
+        } else {
+            // 순수 Base64 (URL이 아닌 경우)
+            guard !imgdata.hasPrefix("/") && !imgdata.hasPrefix("http") else { return nil }
+            b64 = imgdata
+        }
+        guard let data = Data(base64Encoded: b64, options: .ignoreUnknownCharacters),
+              let image = UIImage(data: data) else { return nil }
+        return image
     }
 }

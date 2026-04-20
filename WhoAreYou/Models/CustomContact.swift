@@ -6,3 +6,4 @@ struct CustomContact: Identifiable, Codable, Hashable {
     var phone: String
     var note: String = ""
 }
+	

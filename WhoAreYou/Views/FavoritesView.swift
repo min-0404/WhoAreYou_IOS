@@ -36,10 +36,11 @@ struct FavoritesView: View {
 @MainActor
 class FavoritesViewModel: ObservableObject {
     @Published var employees: [Employee] = []
-    @Published var isLoading = false
+    @Published var isLoading = true   // 첫 렌더부터 로딩 상태로 시작
 
     func load() async {
         isLoading = true
+        await Task.yield()  // UI 갱신(ProgressView 표시) 후 네트워크 호출
         employees = await EmployeeRepository.shared.getMyFavorites()
         isLoading = false
     }

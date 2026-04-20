@@ -41,10 +41,13 @@ struct EmployeeDetailView: View {
                             }
 
                             if !emp.nickname.isEmpty {
-                                Text("\"\(emp.nickname)\"")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(AppTheme.textSecondary)
-                                    .italic()
+                                Text(emp.nickname)
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(AppTheme.primary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 4)
+                                    .background(AppTheme.primaryLight)
+                                    .cornerRadius(20)
                             }
 
                             if !emp.jobTitle.isEmpty {

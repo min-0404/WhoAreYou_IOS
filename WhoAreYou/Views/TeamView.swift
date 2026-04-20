@@ -51,7 +51,7 @@ struct TeamView: View {
 @MainActor
 class TeamViewModel: ObservableObject {
     @Published var employees: [Employee] = []
-    @Published var isLoading = false
+    @Published var isLoading = true   // 첫 렌더부터 로딩 상태로 시작
 
     var groupedTeams: [(key: String, value: [Employee])] {
         Dictionary(grouping: employees, by: { $0.team })
@@ -60,6 +60,7 @@ class TeamViewModel: ObservableObject {
 
     func load() async {
         isLoading = true
+        await Task.yield()  // UI 갱신(ProgressView 표시) 후 네트워크 호출
         let team = await EmployeeRepository.shared.getMyTeam()
         let favs = await EmployeeRepository.shared.getMyFavorites()
         let favNos = Set(favs.map { $0.empNo })

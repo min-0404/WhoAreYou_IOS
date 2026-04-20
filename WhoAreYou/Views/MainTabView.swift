@@ -1,41 +1,32 @@
 import SwiftUI
 
-/// Android 의 메인 탭 + PersistentGlassNavBar 와 동일한 구조
 struct MainTabView: View {
     @State private var selectedTab = 1  // 0=가이드, 1=홈, 2=설정
 
+    init() {
+        // 기본 TabBar 숨기기 (커스텀 GlassNavBar 사용)
+        UITabBar.appearance().isHidden = true
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            // 탭 콘텐츠
-            Group {
-                switch selectedTab {
-                case 0:
-                    NavigationStack { InfoView() }
-                        .transition(.opacity)
-                case 1:
-                    NavigationStack { HomeView() }
-                        .transition(.opacity)
-                case 2:
-                    NavigationStack { SettingsView() }
-                        .transition(.opacity)
-                default:
-                    NavigationStack { HomeView() }
-                }
+            TabView(selection: $selectedTab) {
+                NavigationStack { InfoView() }
+                    .tag(0)
+                NavigationStack { HomeView() }
+                    .tag(1)
+                NavigationStack { SettingsView() }
+                    .tag(2)
             }
-            .animation(.easeInOut(duration: 0.15), value: selectedTab)
-            // 탭바 높이만큼 콘텐츠 아래 여백
+            // 하단 GlassNavBar 높이만큼 여백 확보
             .safeAreaInset(edge: .bottom) {
-                Color.clear.frame(height: 90)
+                Color.clear.frame(height: 88)
             }
 
-            // 글래스 내비바 오버레이
-            VStack(spacing: 0) {
-                GlassNavBar(selectedTab: $selectedTab)
-                    .padding(.bottom, 8)
-            }
-            .padding(.bottom, max(0, UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .first?.windows.first?.safeAreaInsets.bottom ?? 0) - 8)
+            // 커스텀 글래스 탭바
+            GlassNavBar(selectedTab: $selectedTab)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
         }
         .ignoresSafeArea(.keyboard)
     }

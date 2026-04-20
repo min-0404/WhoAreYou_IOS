@@ -220,19 +220,50 @@ struct AsisSearchParser {
     }
 
     private static func extractProfileImageUrl(_ html: String) -> String? {
-        let patterns = [
-            #"class="profile-userpic"[\s\S]*?<img[^>]+src="([^"]+)""#,
-            #"class="testimonials-photo"[\s\S]*?<img[^>]+src="([^"]+)""#,
-            #"<img[^>]+src="(/[^"]*photo[^"]*)"[^>]*/>"#,
-            #"<img[^>]+src="(data:image/[^"]+)"[^>]*/>"#
+        // (패턴, NSRegularExpression.Options) 쌍으로 관리
+        // 버그 수정 사항 (vs 기존):
+        //  1. 패턴3/4: `/>` → `/?>`  — ASIS HTML은 self-closing 아님 (<img src="...">)
+        //  2. 모든 패턴에 .caseInsensitive 추가 (Android RegexOption.IGNORE_CASE 대응)
+        //  3. 단일 따옴표(src='...') 변형 패턴 추가
+        //  4. extractURL 후 HTML 엔티티(&amp; → &) 디코딩 적용
+        let patterns: [(String, NSRegularExpression.Options)] = [
+            (#"class="profile-userpic"[\s\S]*?<img[^>]+src="([^"]+)""#,      [.dotMatchesLineSeparators, .caseInsensitive]),
+            (#"class="testimonials-photo"[\s\S]*?<img[^>]+src="([^"]+)""#,   [.dotMatchesLineSeparators, .caseInsensitive]),
+            (#"class="profile-userpic"[\s\S]*?<img[^>]+src='([^']+)'"#,      [.dotMatchesLineSeparators, .caseInsensitive]),
+            (#"class="testimonials-photo"[\s\S]*?<img[^>]+src='([^']+)'"#,   [.dotMatchesLineSeparators, .caseInsensitive]),
+            (#"<img[^>]+src="(/[^"]*photo[^"]*)"[^>]*/?>"#,                  [.dotMatchesLineSeparators, .caseInsensitive]),
+            (#"<img[^>]+src='(/[^']*photo[^']*)'"#,                          [.dotMatchesLineSeparators, .caseInsensitive]),
+            (#"<img[^>]+src="(data:image/[^"]+)"[^>]*/?>"#,                  [.dotMatchesLineSeparators, .caseInsensitive]),
+            (#"<img[^>]+src='(data:image/[^']+)'"#,                          [.dotMatchesLineSeparators, .caseInsensitive]),
         ]
-        for pattern in patterns {
-            if let url = extractGroup(from: html, pattern: pattern, group: 1, options: [.dotMatchesLineSeparators]),
-               !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return url.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        for (idx, (pattern, options)) in patterns.enumerated() {
+            if let raw = extractGroup(from: html, pattern: pattern, group: 1, options: options) {
+                let url = htmlDecode(raw.trimmingCharacters(in: .whitespacesAndNewlines))
+                if !url.isEmpty {
+                    print("[ProfileImg] ✅ 패턴\(idx + 1) 매칭: \(url.prefix(100))")
+                    return url
+                }
             }
         }
+
+        print("[ProfileImg] ⚠️ 모든 패턴 실패 (HTML 길이: \(html.count))")
+        if html.count < 2000 {
+            print("[ProfileImg] HTML 전체:\n\(html)")
+        } else {
+            print("[ProfileImg] HTML 앞부분:\n\(html.prefix(400))")
+        }
         return nil
+    }
+
+    /// HTML 엔티티 디코딩 (&amp; → &, 등)
+    private static func htmlDecode(_ s: String) -> String {
+        s.replacingOccurrences(of: "&amp;",  with: "&")
+         .replacingOccurrences(of: "&#38;",  with: "&")
+         .replacingOccurrences(of: "&lt;",   with: "<")
+         .replacingOccurrences(of: "&gt;",   with: ">")
+         .replacingOccurrences(of: "&quot;", with: "\"")
+         .replacingOccurrences(of: "&#39;",  with: "'")
     }
 
     // MARK: - Regex Utilities

@@ -8,20 +8,31 @@ struct LoginView: View {
 
     var body: some View {
         ZStack {
+            // 바깥 탭 → 키보드 닫기
             Color.white.ignoresSafeArea()
+                .onTapGesture {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil, from: nil, for: nil)
+                }
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     // 로고
                     VStack(spacing: 6) {
+
                         Image("login_logo")
                             .resizable()
                             .scaledToFit()
                             .frame(width: 200, height: 200)
 
-                        Text("BC후아유")
+                        (Text("BC").foregroundColor(Color(red: 0.85, green: 0.10, blue: 0.10))
+                         + Text("후아유").foregroundColor(AppTheme.textPrimary))
                             .font(.system(size: 26, weight: .bold, design: .rounded))
-                            .foregroundColor(AppTheme.textPrimary)
+
+                        Text("임직원정보 조회 서비스")
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundColor(AppTheme.textSecondary.opacity(0.75))
                     }
                     .padding(.top, 60)
                     .padding(.bottom, 32)
@@ -48,6 +59,7 @@ struct LoginView: View {
                     Spacer(minLength: 40)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
         }
     }
 }
@@ -57,19 +69,34 @@ struct LoginView: View {
 private struct LoginFormView: View {
     @StateObject private var authManager = AuthManager.shared
 
-    @State private var empNo = ""
+    @State private var empNo    = ""
     @State private var password = ""
-    @State private var phoneNo = ""
-    @State private var isLoading = false
+    @State private var phone1   = ""   // 010
+    @State private var phone2   = ""   // 1234
+    @State private var phone3   = ""   // 5678
+    @State private var isLoading    = false
     @State private var errorMessage = ""
+
+    // 포커스 상태
+    @FocusState private var focusedField: PhoneField?
+    enum PhoneField { case p1, p2, p3 }
+
+    // 서버로 보낼 전화번호 (하이픈 없이)
+    private var normalizedPhone: String { phone1 + phone2 + phone3 }
 
     var body: some View {
         VStack(spacing: 12) {
             GlassInputField(icon: "person.circle.fill", placeholder: "사번", text: $empNo, isSecure: false)
-            GlassInputField(icon: "lock.circle.fill",   placeholder: "비밀번호", text: $password, isSecure: true)
-            GlassInputField(icon: "iphone",             placeholder: "휴대폰번호 (하이픈 없이)", text: $phoneNo, isSecure: false)
                 .keyboardType(.numberPad)
-                .frame(height: 44)
+            GlassInputField(icon: "lock.circle.fill",   placeholder: "비밀번호", text: $password, isSecure: true)
+
+            // ── 3칸 전화번호 입력 ──────────────────────────────────
+            PhoneNumberInput(
+                phone1: $phone1,
+                phone2: $phone2,
+                phone3: $phone3,
+                focusedField: $focusedField
+            )
 
             if !errorMessage.isEmpty {
                 Text(errorMessage)
@@ -97,6 +124,18 @@ private struct LoginFormView: View {
             .disabled(isLoading)
             .padding(.top, 4)
         }
+        // 숫자패드에 완료 버튼 추가 (숫자패드는 리턴키 없음)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("완료") {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil, from: nil, for: nil)
+                }
+                .font(.system(size: 15, weight: .semibold))
+            }
+        }
     }
 
     private func login() {
@@ -105,15 +144,14 @@ private struct LoginFormView: View {
             errorMessage = "사번과 비밀번호를 입력해주세요."
             return
         }
-        guard !phoneNo.isEmpty else {
-            errorMessage = "휴대폰번호를 입력해주세요."
+        guard normalizedPhone.count >= 10 else {
+            errorMessage = "올바른 휴대폰번호를 입력해주세요.\n(예: 010 · 1234 · 5678)"
             return
         }
 
         isLoading = true
         Task {
             defer { isLoading = false }
-
             do {
                 let html = try await AsisApiClient.shared.postForm(
                     endpoint: ApiConstants.endpointMember,
@@ -121,19 +159,18 @@ private struct LoginFormView: View {
                         "actnKey": ApiConstants.actnLogin,
                         "empNo":   empNo,
                         "passwd":  password,
-                        "phoneNo": phoneNo.filter { $0.isNumber },
+                        "phoneNo": normalizedPhone,
                         "isApp":   "Y",
                         "version": "14"
                     ]
                 )
-
                 if let result = AsisLoginParser.parse(html) {
-                    await authManager.saveSession(
+                    authManager.saveSession(
                         authKey:  result.authKey,
                         empNo:    result.empNo.isEmpty ? empNo : result.empNo,
                         empNm:    result.empNm,
                         orgCd:    result.orgCd,
-                        phoneNo:  phoneNo.filter { $0.isNumber }
+                        phoneNo:  normalizedPhone
                     )
                 } else {
                     errorMessage = AsisLoginParser.parseError(html) ?? "로그인에 실패했습니다."
@@ -145,23 +182,106 @@ private struct LoginFormView: View {
     }
 }
 
+// MARK: - 3칸 전화번호 입력 컴포넌트
+
+private struct PhoneNumberInput: View {
+    @Binding var phone1: String
+    @Binding var phone2: String
+    @Binding var phone3: String
+    @FocusState.Binding var focusedField: LoginFormView.PhoneField?
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Image(systemName: "iphone")
+                .foregroundColor(AppTheme.primary)
+                .font(.system(size: 18))
+                .frame(width: 22)
+                .padding(.leading, 14)
+
+            Spacer().frame(width: 12)
+
+            // 010 칸 (최대 3자리)
+            TextField("010", text: $phone1)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(AppTheme.textPrimary)
+                .frame(minWidth: 40)
+                .focused($focusedField, equals: .p1)
+                .onChange(of: phone1) { _, val in
+                    phone1 = String(val.filter { $0.isNumber }.prefix(3))
+                    if phone1.count >= 3 { focusedField = .p2 }
+                }
+
+            Text("-")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(AppTheme.textSecondary)
+                .padding(.horizontal, 6)
+
+            // 중간 4자리
+            TextField("0000", text: $phone2)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(AppTheme.textPrimary)
+                .frame(minWidth: 50)
+                .focused($focusedField, equals: .p2)
+                .onChange(of: phone2) { _, val in
+                    phone2 = String(val.filter { $0.isNumber }.prefix(4))
+                    if phone2.count >= 4 { focusedField = .p3 }
+                }
+
+            Text("-")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(AppTheme.textSecondary)
+                .padding(.horizontal, 6)
+
+            // 마지막 4자리
+            TextField("0000", text: $phone3)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(AppTheme.textPrimary)
+                .frame(minWidth: 50)
+                .focused($focusedField, equals: .p3)
+                .onChange(of: phone3) { _, val in
+                    phone3 = String(val.filter { $0.isNumber }.prefix(4))
+                }
+
+            Spacer()
+        }
+        .padding(.vertical, 14)
+        .background(Color(red: 0.93, green: 0.93, blue: 0.94))
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.8), lineWidth: 1.5))
+        .shadow(color: Color(white: 0.67).opacity(0.30), radius: 5, x: 0, y: 2)
+    }
+}
+
 // MARK: - Password Reset Form
 
 private struct PasswordResetFormView: View {
     @State private var empNo    = ""
-    @State private var phoneNo  = ""
+    @State private var phone1   = ""
+    @State private var phone2   = ""
+    @State private var phone3   = ""
     @State private var newPwd   = ""
     @State private var motp     = ""
     @State private var isLoading = false
     @State private var message  = ""
     @State private var isSuccess = false
 
+    @FocusState private var focusedField: LoginFormView.PhoneField?
+
+    private var normalizedPhone: String { phone1 + phone2 + phone3 }
+
     var body: some View {
         VStack(spacing: 12) {
-            GlassInputField(icon: "person.circle.fill", placeholder: "사번",             text: $empNo,   isSecure: false)
-            GlassInputField(icon: "iphone",             placeholder: "휴대폰번호 (하이픈 없이)", text: $phoneNo, isSecure: false).keyboardType(.numberPad)
-            GlassInputField(icon: "lock.circle.fill",   placeholder: "새 비밀번호",        text: $newPwd,  isSecure: true)
-            GlassInputField(icon: "key.fill",           placeholder: "MOTP 값",          text: $motp,    isSecure: false).keyboardType(.numberPad)
+            GlassInputField(icon: "person.circle.fill", placeholder: "사번",       text: $empNo,  isSecure: false)
+                .keyboardType(.numberPad)
+            PhoneNumberInput(phone1: $phone1, phone2: $phone2, phone3: $phone3, focusedField: $focusedField)
+            GlassInputField(icon: "lock.circle.fill",   placeholder: "신규 비밀번호", text: $newPwd, isSecure: true)
+            GlassInputField(icon: "key.fill",           placeholder: "OTP 인증번호",  text: $motp,   isSecure: false).keyboardType(.numberPad)
 
             if !message.isEmpty {
                 Text(message)
@@ -191,7 +311,7 @@ private struct PasswordResetFormView: View {
 
     private func resetPassword() {
         message = ""; isSuccess = false
-        guard !empNo.isEmpty, !phoneNo.isEmpty, !newPwd.isEmpty, !motp.isEmpty else {
+        guard !empNo.isEmpty, normalizedPhone.count >= 10, !newPwd.isEmpty, !motp.isEmpty else {
             message = "모든 항목을 입력해주세요."; return
         }
         isLoading = true
@@ -203,7 +323,7 @@ private struct PasswordResetFormView: View {
                     params: [
                         "actnKey": ApiConstants.actnChangePwd,
                         "empNo":   empNo,
-                        "phoneNo": phoneNo.filter { $0.isNumber },
+                        "phoneNo": normalizedPhone,
                         "passwd":  newPwd,
                         "motp":    motp,
                         "isApp":   "Y"
@@ -250,11 +370,13 @@ struct GlassInputField: View {
                 .font(.system(size: 18))
                 .frame(width: 22)
             if isSecure {
-                SecureField(placeholder, text: $text)
+                SecureField("", text: $text,
+                            prompt: Text(placeholder).foregroundColor(Color(white: 0.6)))
                     .font(.system(size: 16))
                     .foregroundColor(AppTheme.textPrimary)
             } else {
-                TextField(placeholder, text: $text)
+                TextField("", text: $text,
+                          prompt: Text(placeholder).foregroundColor(Color(white: 0.6)))
                     .font(.system(size: 16))
                     .foregroundColor(AppTheme.textPrimary)
             }

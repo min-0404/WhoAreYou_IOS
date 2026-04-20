@@ -68,11 +68,12 @@ struct TeamMemberRowView: View {
                 }.buttonStyle(.plain)
             }
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 PhoneBtn(label: "사내전화", phone: employee.internalPhone, color: AppTheme.accentGreen)
                 PhoneBtn(label: "휴대전화", phone: employee.mobilePhone, color: AppTheme.primary)
+                Spacer()
             }
-            .padding(.top, 14)
+            .padding(.top, 10)
         }
         .padding(16)
         .background(Color.white).cornerRadius(14)
@@ -87,14 +88,18 @@ private struct PhoneBtn: View {
             if let url = URL(string: "tel://\(phone.filter { $0.isNumber })") { UIApplication.shared.open(url) }
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: "phone.fill").font(.system(size: 11))
+                Image(systemName: "phone.fill").font(.system(size: 10))
                 Text(label).font(.system(size: 11, weight: .semibold))
             }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity).padding(.vertical, 10)
-            .background(color).cornerRadius(8)
+            .foregroundColor(color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(color.opacity(0.12))
+            .cornerRadius(20)
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(color.opacity(0.3), lineWidth: 1))
         }
+        .buttonStyle(.plain)
         .disabled(phone.isEmpty)
-        .opacity(phone.isEmpty ? 0.4 : 1)
+        .opacity(phone.isEmpty ? 0.35 : 1)
     }
 }

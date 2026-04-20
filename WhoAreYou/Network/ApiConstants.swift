@@ -1,8 +1,8 @@
 import Foundation
 
 enum ApiConstants {
-    // Build config - use dev server
-    static let isDev = true
+    // Build config - use production server
+    static let isDev = false
     static let baseURL = isDev
         ? "https://isrnd.bccard.com:64443"
         : "https://u2.bccard.com"
